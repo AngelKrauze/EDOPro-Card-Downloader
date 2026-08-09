@@ -1,5 +1,5 @@
 ## Description
- High definition cards downloader for EDOPro duel simulator.
+ High definition card downloader for EDOPro duel simulator.
 
 <img src="https://images.ygoprodeck.com/images/assets/ygoprodeck_header_logo.png">
 
