@@ -7,7 +7,7 @@ set -euo pipefail; shopt -s nullglob
 # Check for curl dependency
 command -v curl >/dev/null || { printf 'MISSING: curl command required' >&2; exit 1; }
 
-readonly dir="$HOME/.local/share/edopro"
+readonly dir="/path/to/edopro/"
 
 if [ -d "$dir" ]; then
 	readonly decks_dir="$dir/deck"
