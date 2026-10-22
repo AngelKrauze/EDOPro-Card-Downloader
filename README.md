@@ -1,17 +1,20 @@
 ## Description
- High definition card downloader for EDOPro duel simulator.
+This script takes your EDOPro decks and downloads a high definition version of every card inside it.
 
 <img src="https://images.ygoprodeck.com/images/assets/ygoprodeck_header_logo.png">
 
 ## Requirements
-- [x] bash
-- [x] curl
-
-<sub>This project is written for bash only.</sub>
+- [x] any shell (sh, bash, dash, etc.)
+- [x] cURL
 ## Usage
-- Edit **`readonly dir="/path/to/edopro/"`** to add the path where edopro is installed.
-- Run it **`bash card_downloader.sh`**.
+- Delete the current **`pics`** folder inside your edopro install
+- Change **`/path/to/edopro/`** inside the script to your edopro location.
+- Run it **`sh card_downloader.sh`**.
+
+<sub>This project is written in POSIX shell.</sub>
+
 <div align="center">
     𝄽<br>
     GPL-3.0 license, enjoy 💫
 </div>
+
