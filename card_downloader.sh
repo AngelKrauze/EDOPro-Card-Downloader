@@ -1,49 +1,44 @@
-#!/usr/bin/env bash
-set -euo pipefail; shopt -s nullglob
+#!/bin/sh
+set -eu
 
-# Yu-Gi-Oh! High Definition card downloader.
-# Requirements: curl
+edopro="/path/to/edopro/"
+concurrency=8
 
-# Check for curl dependency
-command -v curl >/dev/null || { printf 'MISSING: curl command required' >&2; exit 1; }
-
-readonly dir="/path/to/edopro/"
-
-if [ -d "$dir" ]; then
-	readonly decks_dir="$dir/deck"
-	readonly decks=("$decks_dir"/*.ydk)
-else
-	printf 'WARNING: %s %s\n' "$dir" "does not exist"; exit 1
+if [ ! -d "$edopro" ]; then
+  echo "EDOPro folder not found." >&2
+  exit 1
 fi
 
-# Exit if there are no deck files
-[[ ${#decks[@]} -gt 0 ]] || { printf 'MISSING: No .ydk files found in %s\n' "$decks_dir" >&2; exit 1; }
+mkdir -p "$edopro/pics"
 
-mkdir -p "$dir/pics" || { printf 'WARNING: mkdir pics failed' >&2; exit 1; }
+# Temporary files for processing
+all_ids=$(mktemp)
+missing_ids=$(mktemp)
+trap 'rm -f "$all_ids" "$missing_ids"' EXIT
 
-# Create tmpfs for incmplete downloads
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/edopro.XXXXXX") || { printf 'WARNING: mktemp failed' >&2; exit 1; }
+# 1. Collect all numeric IDs from all decks
+for deck in "$edopro"/deck/*.ydk; do
+  [ -f "$deck" ] || continue
+  while IFS= read -r id || [ -n "$id" ]; do
+    case "$id" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    echo "$id"
+  done < "$deck"
+done > "$all_ids"
 
-# Clean tmpfs after exit or interrupted
-trap '[[ -n "${tmp:-}" ]] && rm -rf "$tmp"' EXIT INT TERM HUP QUIT ABRT PIPE
+# 2. Deduplicate IDs and filter out those already downloaded
+sort -u "$all_ids" | while read -r id; do
+  [ -f "$edopro/pics/$id.jpg" ] || echo "$id"
+done > "$missing_ids"
 
-for ydk in "${decks[@]}"; do
-
-	while IFS= read -r card_id || [[ -n "$card_id" ]]; do
-		# Cards ID's are numeric only (max. digits: 10)
-		if [[ ! $card_id =~ ^[0-9]{1,10}$ ]]; then
-			continue
-		fi
-		# Skip if file already exist
-		if [[ -f "$dir/pics/$card_id.jpg" ]]; then
-			continue
-		fi
-		# Download card JPEG using curl
-		if curl -sS -f -C - --connect-timeout 5 --max-time 10 --retry 2 --retry-delay 1 --max-filesize 10485760 -o "$tmp/$card_id.jpg.tmp" https://images.ygoprodeck.com/images/cards/$card_id.jpg 2>/dev/null; then
-			mv "$tmp/$card_id.jpg.tmp" "$dir/pics/$card_id.jpg" || { echo "mv failed for $card_id" >&2; continue; }
-			printf 'Success: %s\n' "$card_id"
-		else
-			printf 'Failure: %s\n' "$card_id"
-		fi
-	done < "$ydk"
-done
+# 3. Download the unique missing images in parallel
+cat "$missing_ids" | xargs -P "$concurrency" -I {} sh -c '
+  id="{}"
+  out="'"$edopro"'/pics/$id.jpg"
+  if curl -fsSL --connect-timeout 5 --max-time 15 -o "$out" "https://images.ygoprodeck.com/images/cards/$id.jpg"; then
+    echo "Downloaded: $id"
+  else
+    echo "Failed: $id" >&2
+  fi
+'
